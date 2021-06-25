@@ -1,8 +1,10 @@
+import collections
 import json
-import praw
+import random
 import requests
-import time
 import toml
+
+import praw
 
 CACHE_FILE = "cache.json"
 CACHE_TIMEOUT = 7 * 24 * 60 * 60  # one week
@@ -23,37 +25,44 @@ def get_handle() -> praw.Reddit:
 
 
 def update_cache():
+    payload = {"page": 1, "per_page": 100}
+    first_resp = requests.get(FAB_API_URL + "/cards",
+                              params=payload, timeout=1).json()
+
+    num_pages = first_resp["meta"]["last_page"]
+    card_cache = collections.defaultdict()
+    for i in range(1, num_pages+1):
+        url = f"{FAB_API_URL}/cards?page={i}&per_page=100"
+        resp = requests.get(url, timeout=1).json()
+        data = resp["data"]
+        cards = {card["identifier"]: card for card in data}
+        card_cache.update(cards)
+
+    with open(CACHE_FILE, 'w') as f:
+        json.dump(card_cache, f)
+
+    return card_cache
 
 
-    return
+def get_cards():
+    # Refresh cache if expired.
+    payload = {"page": 1, "per_page": 100}
+    resp = requests.get(FAB_API_URL + "/cards",
+                        params=payload, timeout=1).json()
+    current_num_cards = resp["meta"]["total"]
+
+    with open(CACHE_FILE, 'r') as f:
+        card_cache = json.load(f)
+
+    cards_changed = current_num_cards != len(card_cache)
+    if cards_changed:
+        return update_cache()
+
+    return card_cache
 
 
-def get_ids():
-    data = None
-    with open(CACHE_FILE) as f:
-        data = json.load(f)
+all_cards = get_cards()
+cotd = random.choice(list(all_cards.values()))
 
-    cached_timestamp = data["timestamp"]
-    current_time = time.time()
-
-    # Refresh cache if expired. 
-    if current_time > cached_timestamp + CACHE_TIMEOUT:
-        update_cache()
-
-    ids = data["ids"]
-
-    return ids
-
-    
-
-
-r = get_handle()
-subreddit = r.subreddit(FAB_SUBREDDIT)
-
-
-check if cache is expired
-if cache expired, refresh cache
-pick a random id
-fetch info for card with id
-build post content using card info
-make post
+# TODO build post content using card info
+# TODO make post
