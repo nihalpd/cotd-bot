@@ -3,6 +3,7 @@ import json
 import random
 import requests
 import toml
+from os import path
 
 import praw
 
@@ -11,6 +12,33 @@ CACHE_TIMEOUT = 7 * 24 * 60 * 60  # one week
 CREDS_FILE_PATH = "credentials.toml"
 FAB_API_URL = "https://api.fabdb.net"
 FAB_SUBREDDIT = "FleshAndBloodTCG"
+
+
+def generate_post_and_title(card) -> (str, str):
+    post_title = f"Card of The Day - {card['name']}"
+    card_link = "https://fabdb.net/cards/" + card['identifier']
+    keywords = ", ".join(card['keywords'])
+
+    post_lines = [
+            f"# [{card['name']}]({card_link})\n",
+            f"{card['text']}\n\n",
+            " Attribute | Stat \n",
+            "-|-\n",
+            f" Rarity | {card['rarity']} \n",
+            f" Keywords | {keywords}\n",
+            ]
+
+    stats = card['stats']
+    if 'attack' not in stats:
+        post_lines.append("| Attack |  0 |\n")
+    for stat in stats:
+        post_lines.append(f" {stat} | {stats[stat]}\n")
+
+    post_lines.append(f"# [Image]({card['image']})")
+    return (post_title, ''.join(post_lines))
+
+
+
 
 
 def get_handle() -> praw.Reddit:
@@ -45,24 +73,32 @@ def update_cache():
 
 
 def get_cards():
-    # Refresh cache if expired.
     payload = {"page": 1, "per_page": 100}
     resp = requests.get(FAB_API_URL + "/cards",
-                        params=payload, timeout=1).json()
+                        params=payload).json()
     current_num_cards = resp["meta"]["total"]
 
-    with open(CACHE_FILE, 'r') as f:
-        card_cache = json.load(f)
-
-    cards_changed = current_num_cards != len(card_cache)
-    if cards_changed:
+    # If the cache file doesnt exist, update the cache
+    if not path.exists(CACHE_FILE):
         return update_cache()
 
-    return card_cache
+    with open(CACHE_FILE, 'r') as file:
+        card_cache = json.load(file)
+
+    # Refresh cache if the total number of cards have changed.
+    cards_changed = current_num_cards != len(card_cache)
+    if cards_changed:
+        print("Total number of cards has changed. Refreshing cache.")
+        return update_cache()
+    else:
+        print("Total number of cards has remained unchanged. Using old cache.")
+        return card_cache
 
 
 all_cards = get_cards()
 cotd = random.choice(list(all_cards.values()))
+title, post = generate_post_and_title(cotd)
 
-# TODO build post content using card info
-# TODO make post
+reddit = get_handle()
+sr = reddit.subreddit('test')
+sr.submit(title, selftext=post)
