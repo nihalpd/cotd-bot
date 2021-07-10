@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 
 import praw
 
+FLAIR_ID = os.environ.get("FLAIR")
 FAB_API_URL = "https://api.fabdb.net"
 FAB_SUBREDDIT = os.environ.get("SUBREDDIT") or "test"
 SECRET_NAME = "prod/COTDBot/credentials"
@@ -121,7 +122,7 @@ def lambda_handler(self, event):
     try:
         reddit = get_handle()
         subreddit = reddit.subreddit(FAB_SUBREDDIT)
-        submission = subreddit.submit(title, selftext=post)
+        submission = subreddit.submit(title, selftext=post, flair_id=FLAIR_ID)
         return {
                 "saved": submission.saved,
                 "title": submission.title,
