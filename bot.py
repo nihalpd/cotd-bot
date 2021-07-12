@@ -9,9 +9,9 @@ from botocore.exceptions import ClientError
 
 import praw
 
-FLAIR_ID = os.environ.get("FLAIR")
+FLAIR_TEMPLATE_ID = os.environ.get("FLAIR") or "fb46b008-17ec-11eb-b82b-0ebe8ccf32a9"
 FAB_API_URL = "https://api.fabdb.net"
-FAB_SUBREDDIT = os.environ.get("SUBREDDIT") or "test"
+FAB_SUBREDDIT = os.environ.get("SUBREDDIT") or "FleshAndBloodTCG"
 SECRET_NAME = "prod/COTDBot/credentials"
 AWS_REGION = "us-east-2"
 
@@ -122,13 +122,13 @@ def lambda_handler(self, event):
     try:
         reddit = get_handle()
         subreddit = reddit.subreddit(FAB_SUBREDDIT)
-        submission = subreddit.submit(title, selftext=post, flair_id=FLAIR_ID)
+        submission = subreddit.submit(title, selftext=post, flair_id=FLAIR_TEMPLATE_ID)
         return {
-                "saved": submission.saved,
                 "title": submission.title,
                 "content": submission.selftext,
                 "url": submission.permalink,
                 "subreddit": FAB_SUBREDDIT
+                "flair": submission.link_flair_text,
                }
     except Exception as e:
-        logger.error("Exception thrown while getting reddit handle: %s", e)
+        logger.exception("Exception thrown while submitting reddit post")
